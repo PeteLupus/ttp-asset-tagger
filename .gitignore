@@ -1,0 +1,5 @@
+node_modules/
+.env
+data/token.json
+data/progress.json
+.DS_Store
