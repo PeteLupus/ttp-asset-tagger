@@ -7,6 +7,8 @@ module.exports = {
   progressPath: require('path').join(__dirname, 'data', 'progress.json'),
   dedupReportPath: require('path').join(__dirname, 'data', 'dedup_report.json'),
   dedupProgressPath: require('path').join(__dirname, 'data', 'dedup_progress.json'),
+  clusterReportPath: require('path').join(__dirname, 'data', 'cluster_report.json'),
+  clusterProgressPath: require('path').join(__dirname, 'data', 'cluster_progress.json'),
   destinationRootName: 'TTP Organized Assets',
   port: process.env.PORT || 3000,
   oauthPort: 3001,

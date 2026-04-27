@@ -340,6 +340,114 @@ app.post('/api/dedup/keep', (req, res) => {
   res.json({ ok: true })
 })
 
+// ── Cluster (batch-tag) helpers ────────────────────────────────────────────
+function loadClusterReport() {
+  try { return JSON.parse(fs.readFileSync(config.clusterReportPath, 'utf8')) }
+  catch { return null }
+}
+
+function loadClusterProgress() {
+  try { return JSON.parse(fs.readFileSync(config.clusterProgressPath, 'utf8')) }
+  catch { return { tagged: [], skipped: [] } }
+}
+
+function saveClusterProgress(p) {
+  fs.writeFileSync(config.clusterProgressPath, JSON.stringify(p, null, 2))
+}
+
+function getActiveClusters() {
+  const report = loadClusterReport()
+  if (!report) return null
+  const cprog = loadClusterProgress()
+  const fprog = loadProgress()
+  const taggedFiles = new Set(Object.keys(fprog.tagged))
+  const decided = new Set([...cprog.tagged, ...cprog.skipped])
+
+  return report.clusters
+    .filter(c => !decided.has(c.id))
+    .map(c => ({
+      ...c,
+      files: c.files.filter(f => !taggedFiles.has(f.id))
+    }))
+    .filter(c => c.files.length > 0)
+}
+
+app.get('/api/clusters', (req, res) => {
+  const report = loadClusterReport()
+  if (!report) return res.json({ available: false })
+  const cprog = loadClusterProgress()
+  const active = getActiveClusters() || []
+  const next = active[0] || null
+  res.json({
+    available: true,
+    total: report.clusters.length,
+    tagged: cprog.tagged.length,
+    skipped: cprog.skipped.length,
+    remaining: active.length,
+    next
+  })
+})
+
+app.post('/api/clusters/tag', async (req, res) => {
+  const { clusterId, suburb, state, jobType, description } = req.body
+  if (!clusterId || !suburb || !state || !jobType) {
+    return res.status(400).json({ error: 'clusterId, suburb, state, jobType are required' })
+  }
+  const report = loadClusterReport()
+  const cluster = report?.clusters.find(c => c.id === clusterId)
+  if (!cluster) return res.status(404).json({ error: 'cluster not found' })
+
+  try {
+    const rootId = await getOrCreateDestRoot()
+    const locationLabel = `${suburb.trim()} ${state.trim()}`
+    const locationFolderId = await ensureFolder(locationLabel, rootId)
+    const typeFolderId = await ensureFolder(jobType, locationFolderId)
+
+    const fprog = loadProgress()
+    let moved = 0, errors = 0, skipped = 0
+
+    for (const file of cluster.files) {
+      if (fprog.tagged[file.id]) { skipped++; continue }
+      try {
+        await moveFile(file.id, typeFolderId)
+        fprog.tagged[file.id] = {
+          suburb: suburb.trim(),
+          state: state.trim(),
+          jobType,
+          description: (description || '').trim(),
+          destFolderId: typeFolderId,
+          taggedAt: new Date().toISOString(),
+          via: 'cluster',
+          clusterId
+        }
+        moved++
+      } catch (err) {
+        console.error('[CLUSTER TAG]', file.name, err.message)
+        errors++
+      }
+    }
+    saveProgress(fprog)
+
+    const cprog = loadClusterProgress()
+    if (!cprog.tagged.includes(clusterId)) cprog.tagged.push(clusterId)
+    saveClusterProgress(cprog)
+
+    res.json({ ok: true, moved, skipped, errors })
+  } catch (err) {
+    console.error('[CLUSTER TAG ERROR]', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/clusters/skip', (req, res) => {
+  const { clusterId } = req.body
+  if (!clusterId) return res.status(400).json({ error: 'clusterId required' })
+  const cprog = loadClusterProgress()
+  if (!cprog.skipped.includes(clusterId)) cprog.skipped.push(clusterId)
+  saveClusterProgress(cprog)
+  res.json({ ok: true })
+})
+
 app.post('/api/skip', (req, res) => {
   const { fileId } = req.body
   if (!fileId) return res.status(400).json({ error: 'fileId required' })

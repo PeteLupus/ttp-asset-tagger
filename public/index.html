@@ -560,6 +560,74 @@
 
   .btn-keep-both:hover:not(:disabled) { border-color: var(--keep); color: var(--keep); }
 
+  /* ── Batch (cluster) screen ── */
+  #batch-screen { flex-direction: column; overflow: hidden; }
+  .batch-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; gap: 16px;
+  }
+  .batch-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .batch-counter { font-size: 13px; color: var(--muted); }
+  .batch-shortcuts { display: flex; gap: 14px; }
+  .batch-body {
+    flex: 1; display: grid; grid-template-columns: 1.4fr 1fr;
+    min-height: 0; overflow: hidden;
+  }
+  .batch-info {
+    padding: 24px; border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 16px; overflow: hidden;
+  }
+  .batch-meta-row {
+    display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  }
+  .batch-suburb-label { font-size: 22px; font-weight: 700; color: var(--text); }
+  .batch-date { font-size: 14px; color: var(--muted); }
+  .batch-count-pill {
+    font-size: 12px; font-weight: 600; padding: 4px 10px;
+    border-radius: 999px; background: var(--accent); color: #fff;
+    margin-left: auto;
+  }
+  .batch-thumbs {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px; overflow-y: auto; flex: 1;
+    padding-right: 4px;
+  }
+  .batch-thumb {
+    aspect-ratio: 1; border-radius: 6px; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--border);
+    position: relative;
+  }
+  .batch-thumb img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  .batch-thumb.more {
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; color: var(--muted); font-size: 18px;
+  }
+  .batch-form {
+    padding: 24px; display: flex; flex-direction: column; gap: 16px;
+    overflow-y: auto;
+  }
+  .batch-actions { display: flex; gap: 8px; margin-top: auto; }
+  .batch-actions .btn-primary {
+    flex: 2; padding: 12px; font-size: 14px; font-weight: 700;
+    border-radius: 8px; border: 0; background: var(--accent); color: #fff;
+    cursor: pointer; font-family: inherit;
+  }
+  .batch-actions .btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
+  .batch-actions .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .batch-actions .btn-secondary {
+    flex: 1; padding: 12px; font-size: 14px; font-weight: 600;
+    border-radius: 8px; border: 1px solid var(--border); background: transparent;
+    color: var(--muted); cursor: pointer; font-family: inherit;
+  }
+  .batch-actions .btn-secondary:hover:not(:disabled) { color: var(--text); border-color: var(--text); }
+  #batch-done {
+    display: none; flex-direction: column; align-items: center;
+    justify-content: center; gap: 16px; text-align: center; padding: 40px; flex: 1;
+  }
+
   /* ── Dedup done screen ── */
   #dedup-done {
     display: none;
@@ -603,6 +671,8 @@
     .btn-row { grid-template-columns: auto 1fr 1fr; }
     .dedup-body { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
     .dedup-col:first-child { border-right: none; border-bottom: 1px solid var(--border); }
+    .batch-body { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+    .batch-info { border-right: none; border-bottom: 1px solid var(--border); }
   }
 </style>
 </head>
@@ -611,7 +681,10 @@
 <header>
   <div class="logo">TTP Asset Tagger</div>
   <div class="tabs">
-    <button class="tab active" id="tab-tagger" onclick="switchTab('tagger')">Tagger</button>
+    <button class="tab active" id="tab-batch" onclick="switchTab('batch')">
+      Batch Tag<span class="tab-count" id="batch-tab-count">–</span>
+    </button>
+    <button class="tab" id="tab-tagger" onclick="switchTab('tagger')">Tagger</button>
     <button class="tab" id="tab-dedup" onclick="switchTab('dedup')">
       Dedup Review<span class="tab-count" id="dedup-tab-count">–</span>
     </button>
@@ -623,8 +696,62 @@
   </div>
 </header>
 
+<!-- ── Batch Tag Screen ── -->
+<div class="screen active" id="batch-screen">
+  <div class="batch-header">
+    <span class="batch-title">Batch Tag</span>
+    <span class="batch-counter" id="batch-counter">Loading...</span>
+    <div class="batch-shortcuts shortcuts">
+      <div class="shortcut"><kbd>Enter</kbd> Tag all</div>
+      <div class="shortcut"><kbd>S</kbd> Skip cluster</div>
+    </div>
+  </div>
+  <div class="batch-body" id="batch-body">
+    <div class="batch-info">
+      <div class="batch-meta">
+        <div class="batch-meta-row">
+          <span class="batch-suburb-label" id="batch-suburb-label">—</span>
+          <span class="batch-date" id="batch-date">—</span>
+          <span class="batch-count-pill" id="batch-count-pill">— files</span>
+        </div>
+      </div>
+      <div class="batch-thumbs" id="batch-thumbs"></div>
+    </div>
+    <div class="batch-form">
+      <div class="field">
+        <label>Location</label>
+        <div class="suburb-row">
+          <input type="text" id="batch-suburb" placeholder="e.g. Coolaroo" autocomplete="off" />
+          <datalist id="batch-suburbs-list"></datalist>
+          <select id="batch-state">
+            <option>VIC</option><option>NSW</option><option>QLD</option>
+            <option>SA</option><option>WA</option><option>TAS</option>
+            <option>ACT</option><option>NT</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Job Type</label>
+        <select id="batch-job-type"></select>
+      </div>
+      <div class="field">
+        <label>Description (optional)</label>
+        <input type="text" id="batch-description" placeholder="Optional notes…" autocomplete="off" />
+      </div>
+      <div class="batch-actions">
+        <button id="batch-tag-btn" class="btn-primary" onclick="tagBatch()">Tag all</button>
+        <button id="batch-skip-btn" class="btn-secondary" onclick="skipBatch()">Skip cluster</button>
+      </div>
+    </div>
+  </div>
+  <div id="batch-done" style="display:none">
+    <h2>All clusters processed ✓</h2>
+    <p>Switch to the <a href="#" onclick="switchTab('tagger');return false;">Tagger</a> tab to handle the remaining ungrouped files.</p>
+  </div>
+</div>
+
 <!-- ── Tagger Screen ── -->
-<div class="screen active" id="tagger-screen">
+<div class="screen" id="tagger-screen">
   <div class="image-panel" id="image-panel">
     <div class="spinner" id="spinner"></div>
     <div class="img-placeholder" id="placeholder">
@@ -769,6 +896,10 @@
   let dedupPair = null
   let dedupBusy = false
 
+  // ── Batch state ───────────────────────────────────────────────────────────
+  let currentCluster = null
+  let batchBusy = false
+
   // ── Tab switching ─────────────────────────────────────────────────────────
   function switchTab(tab) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
@@ -777,27 +908,45 @@
     document.getElementById(tab + '-screen').classList.add('active')
     document.getElementById('tagger-progress').style.display = tab === 'tagger' ? 'flex' : 'none'
     if (tab === 'dedup') loadDedupNext()
+    if (tab === 'batch') loadBatchNext()
+    if (tab === 'tagger' && !currentFile) loadNext()
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
   async function init() {
-    const [cfgRes, progRes, dedupRes] = await Promise.all([
+    const [cfgRes, progRes, dedupRes, clusterRes] = await Promise.all([
       fetch('/api/config').then(r => r.json()),
       fetch('/api/progress').then(r => r.json()),
-      fetch('/api/dedup').then(r => r.json())
+      fetch('/api/dedup').then(r => r.json()),
+      fetch('/api/clusters').then(r => r.json())
     ])
 
-    const sel = document.getElementById('job-type')
+    const taggerSel = document.getElementById('job-type')
+    const batchSel  = document.getElementById('batch-job-type')
     cfgRes.jobTypes.forEach(t => {
-      const o = document.createElement('option')
-      o.value = t; o.textContent = t
-      sel.appendChild(o)
+      const o1 = document.createElement('option'); o1.value = t; o1.textContent = t; taggerSel.appendChild(o1)
+      const o2 = document.createElement('option'); o2.value = t; o2.textContent = t; batchSel.appendChild(o2)
     })
 
     totalFiles = progRes.total
     updateProgress(progRes)
     updateDedupCount(dedupRes.remaining)
-    await loadNext()
+    updateBatchCount(clusterRes)
+
+    // Pick which tab to start on: batch if clusters available, else tagger
+    if (clusterRes.available && clusterRes.remaining > 0) {
+      switchTab('batch')
+    } else {
+      switchTab('tagger')
+      await loadNext()
+    }
+  }
+
+  function updateBatchCount(cr) {
+    const el = document.getElementById('batch-tab-count')
+    if (!cr.available) { el.textContent = '—'; el.style.background = 'var(--muted)'; return }
+    el.textContent = cr.remaining > 0 ? cr.remaining : '✓'
+    el.style.background = cr.remaining > 0 ? 'var(--accent)' : 'var(--success)'
   }
 
   function updateDedupCount(n) {
@@ -1071,9 +1220,134 @@
       })
     }
   }
+  function updateBatchSuburbList() {
+    const state = document.getElementById('batch-state').value
+    const dl = document.getElementById('batch-suburbs-list')
+    dl.innerHTML = ''
+    if (state === 'VIC') {
+      VIC_SUBURBS.forEach(s => {
+        const opt = document.createElement('option')
+        opt.value = s
+        dl.appendChild(opt)
+      })
+    }
+  }
 
   document.getElementById('state').addEventListener('change', updateSuburbList)
+  document.getElementById('batch-state').addEventListener('change', updateBatchSuburbList)
   updateSuburbList()
+  updateBatchSuburbList()
+
+  // ── Batch (cluster) handlers ──────────────────────────────────────────────
+  async function loadBatchNext() {
+    const res = await fetch('/api/clusters').then(r => r.json())
+    updateBatchCount(res)
+
+    const body = document.getElementById('batch-body')
+    const done = document.getElementById('batch-done')
+    const counter = document.getElementById('batch-counter')
+
+    if (!res.available) {
+      body.style.display = 'none'
+      done.style.display = 'flex'
+      done.innerHTML = '<h2>No cluster report yet</h2><p style="color:var(--muted)">Run <code>node scripts/cluster.js</code> first.</p>'
+      counter.textContent = ''
+      return
+    }
+    if (res.remaining === 0) {
+      body.style.display = 'none'
+      done.style.display = 'flex'
+      counter.textContent = `${res.tagged} tagged · ${res.skipped} skipped`
+      return
+    }
+
+    body.style.display = 'grid'
+    done.style.display = 'none'
+    currentCluster = res.next
+    counter.textContent = `Cluster ${res.tagged + res.skipped + 1} of ${res.total} · ${res.remaining} remaining`
+
+    document.getElementById('batch-suburb-label').textContent = `${currentCluster.suburb}, ${currentCluster.state}`
+    document.getElementById('batch-date').textContent = currentCluster.date
+    document.getElementById('batch-count-pill').textContent = `${currentCluster.fileCount} files`
+    document.getElementById('batch-suburb').value = currentCluster.suburb
+    document.getElementById('batch-state').value = currentCluster.state || 'VIC'
+    document.getElementById('batch-description').value = ''
+    updateBatchSuburbList()
+    document.getElementById('batch-job-type').value = ''
+
+    // Render thumbs (max 24 with overflow indicator)
+    const thumbs = document.getElementById('batch-thumbs')
+    thumbs.innerHTML = ''
+    const MAX_THUMBS = 24
+    const shown = currentCluster.files.slice(0, MAX_THUMBS)
+    for (const f of shown) {
+      const div = document.createElement('div')
+      div.className = 'batch-thumb'
+      const img = document.createElement('img')
+      img.src = `/api/image/${f.id}`
+      img.loading = 'lazy'
+      img.alt = f.name
+      div.appendChild(img)
+      thumbs.appendChild(div)
+    }
+    const overflow = currentCluster.files.length - shown.length
+    if (overflow > 0) {
+      const more = document.createElement('div')
+      more.className = 'batch-thumb more'
+      more.textContent = `+${overflow}`
+      thumbs.appendChild(more)
+    }
+  }
+
+  function setBatchBtns(on) {
+    batchBusy = !on
+    document.getElementById('batch-tag-btn').disabled = !on
+    document.getElementById('batch-skip-btn').disabled = !on
+  }
+
+  async function tagBatch() {
+    if (batchBusy || !currentCluster) return
+    const suburb  = document.getElementById('batch-suburb').value.trim()
+    const state   = document.getElementById('batch-state').value.trim()
+    const jobType = document.getElementById('batch-job-type').value
+    const description = document.getElementById('batch-description').value.trim()
+    if (!suburb || !jobType) {
+      showToast('Suburb and job type required', true)
+      return
+    }
+    setBatchBtns(false)
+    const btn = document.getElementById('batch-tag-btn')
+    const original = btn.textContent
+    btn.textContent = `Tagging ${currentCluster.fileCount} files…`
+    try {
+      const res = await fetch('/api/clusters/tag', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clusterId: currentCluster.id, suburb, state, jobType, description })
+      }).then(r => r.json())
+      if (res.error) throw new Error(res.error)
+      showToast(`Tagged ${res.moved} files${res.errors ? ` (${res.errors} errors)` : ''}`)
+      // Refresh tagger progress in background
+      fetch('/api/progress').then(r => r.json()).then(updateProgress)
+      await loadBatchNext()
+    } catch (err) {
+      showToast('Error: ' + err.message, true)
+    } finally {
+      btn.textContent = original
+      setBatchBtns(true)
+    }
+  }
+
+  async function skipBatch() {
+    if (batchBusy || !currentCluster) return
+    setBatchBtns(false)
+    try {
+      await fetch('/api/clusters/skip', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clusterId: currentCluster.id })
+      })
+      await loadBatchNext()
+    } finally { setBatchBtns(true) }
+  }
 
   // ── Keyboard ──────────────────────────────────────────────────────────────
   document.addEventListener('keydown', e => {
@@ -1089,6 +1363,12 @@
     if (activeScreen === 'dedup-screen') {
       if (e.key === 'Enter') { e.preventDefault(); dedupTrash() }
       if (e.key === 'k' || e.key === 'K') dedupKeepBoth()
+    }
+
+    if (activeScreen === 'batch-screen') {
+      const tag = document.activeElement.tagName
+      if (e.key === 'Enter' && tag !== 'TEXTAREA') { e.preventDefault(); tagBatch() }
+      if ((e.key === 's' || e.key === 'S') && tag === 'BODY') skipBatch()
     }
   })
 
