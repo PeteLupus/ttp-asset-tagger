@@ -101,22 +101,51 @@ function waitForOAuthCode() {
 }
 
 // ── Drive helpers ──────────────────────────────────────────────────────────
-async function loadAllFiles() {
-  console.log('[DRIVE] Loading file list from source folder...')
-  const files = []
-  let pageToken = null
-  do {
-    const res = await drive.files.list({
-      q: `'${config.sourceFolderId}' in parents and mimeType contains 'image/' and trashed = false`,
-      fields: 'nextPageToken, files(id, name, mimeType, size)',
-      pageSize: 200,
-      pageToken: pageToken || undefined
-    })
-    files.push(...(res.data.files || []))
-    pageToken = res.data.nextPageToken
-  } while (pageToken)
+async function getAllFolderIds(rootId) {
+  const ids = [rootId]
+  const queue = [rootId]
+  while (queue.length) {
+    const parentId = queue.shift()
+    let pageToken = null
+    do {
+      const res = await drive.files.list({
+        q: `'${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+        fields: 'nextPageToken, files(id, name)',
+        pageSize: 200,
+        pageToken: pageToken || undefined
+      })
+      for (const folder of res.data.files || []) {
+        console.log(`[DRIVE] Found subfolder: ${folder.name}`)
+        ids.push(folder.id)
+        queue.push(folder.id)
+      }
+      pageToken = res.data.nextPageToken
+    } while (pageToken)
+  }
+  return ids
+}
 
-  console.log(`[DRIVE] Found ${files.length} images in source folder.`)
+async function loadAllFiles() {
+  console.log('[DRIVE] Mapping folder tree...')
+  const folderIds = await getAllFolderIds(config.sourceFolderId)
+  console.log(`[DRIVE] Found ${folderIds.length} folder(s). Loading files...`)
+
+  const files = []
+  for (const folderId of folderIds) {
+    let pageToken = null
+    do {
+      const res = await drive.files.list({
+        q: `'${folderId}' in parents and (mimeType contains 'image/' or mimeType contains 'video/') and trashed = false`,
+        fields: 'nextPageToken, files(id, name, mimeType, size)',
+        pageSize: 200,
+        pageToken: pageToken || undefined
+      })
+      files.push(...(res.data.files || []))
+      pageToken = res.data.nextPageToken
+    } while (pageToken)
+  }
+
+  console.log(`[DRIVE] Found ${files.length} images/videos across all folders.`)
   return files
 }
 
@@ -249,6 +278,66 @@ app.post('/api/tag', async (req, res) => {
     console.error('[TAG ERROR]', err.message)
     res.status(500).json({ error: err.message })
   }
+})
+
+// ── Dedup helpers ──────────────────────────────────────────────────────────
+function loadDedupProgress() {
+  try { return JSON.parse(fs.readFileSync(config.dedupProgressPath, 'utf8')) }
+  catch { return { decided: [] } }
+}
+
+function saveDedupProgress(p) {
+  fs.writeFileSync(config.dedupProgressPath, JSON.stringify(p, null, 2))
+}
+
+function getDedupPairs() {
+  const report = JSON.parse(fs.readFileSync(config.dedupReportPath, 'utf8'))
+  const pairs = []
+  for (const group of report.duplicate_groups || []) {
+    const keepFile = group.files.find(f => f.id === group.keep_id)
+    for (const killId of group.kill_ids) {
+      const killFile = group.files.find(f => f.id === killId)
+      if (keepFile && killFile) pairs.push({ keepFile, killFile })
+    }
+  }
+  return pairs
+}
+
+app.get('/api/dedup', (req, res) => {
+  const pairs = getDedupPairs()
+  const prog = loadDedupProgress()
+  const decided = new Set(prog.decided)
+  const total = pairs.length
+  const pending = pairs.filter(p => !decided.has(p.killFile.id))
+  res.json({ total, remaining: pending.length, next: pending[0] || null })
+})
+
+app.post('/api/dedup/trash', async (req, res) => {
+  const { killId } = req.body
+  if (!killId) return res.status(400).json({ error: 'killId required' })
+  try {
+    await drive.files.update({ fileId: killId, requestBody: { trashed: true } })
+    const prog = loadDedupProgress()
+    if (!prog.decided.includes(killId)) prog.decided.push(killId)
+    saveDedupProgress(prog)
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[DEDUP TRASH ERROR]', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/dedup/trash-all', (req, res) => {
+  res.status(410).json({ error: 'trash-all disabled — use scripts/cull.js (move-based) instead' })
+})
+
+app.post('/api/dedup/keep', (req, res) => {
+  const { killId } = req.body
+  if (!killId) return res.status(400).json({ error: 'killId required' })
+  const prog = loadDedupProgress()
+  if (!prog.decided.includes(killId)) prog.decided.push(killId)
+  saveDedupProgress(prog)
+  res.json({ ok: true })
 })
 
 app.post('/api/skip', (req, res) => {

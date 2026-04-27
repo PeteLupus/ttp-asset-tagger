@@ -2,4 +2,10 @@ node_modules/
 .env
 data/token.json
 data/progress.json
+data/dedup_progress.json
+data/credentials.json
+data/cull_log.json
+data/recon_report.json
+data/dedup_report.json
+runtime/
 .DS_Store

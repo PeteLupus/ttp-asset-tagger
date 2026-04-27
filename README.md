@@ -1,37 +1,29 @@
 # TTP Asset Tagger
 
-Tags and reorganizes The Truss People image dump into a structured Google Drive folder hierarchy.
+Tags and organises The Truss People photo/video dump into a structured Google Drive folder.
 
-## Stack
-Node.js, Express, Google Drive API v3, vanilla HTML/CSS/JS
+## How to use
 
-## Setup
+1. Unzip the folder anywhere (Desktop is fine)
+2. Double-click **START.bat**
+3. First time only: sign in with your Google account when the browser asks
+4. Tag your assets — the app opens at http://localhost:3000 automatically
 
-```bash
-npm install
-cp .env.example .env
-# Edit .env — set GOOGLE_SOURCE_FOLDER_ID and GOOGLE_OAUTH_CLIENT_PATH
-node server.js
-```
+**Keep the black window open while you work. Close it when you're done.**
 
-First run opens a browser for Google OAuth. Authorize once, token is saved.
+Progress saves automatically — you can stop and resume any time.
 
-Open **http://localhost:3000**
+## How tagging works
 
-## How it works
+- Each photo/video is shown one at a time
+- Enter the suburb, pick the job type, add an optional description
+- Click **Tag & Next** — the file moves to `/TTP Organized Assets/[Suburb STATE]/[Job Type]/` in Google Drive
+- **Skip** anything you don't want to tag
 
-1. Shows each image from the source GDrive folder
-2. Vic enters suburb, state, job type, optional description
-3. Click **Tag & Next** → file is moved to `/TTP Organized Assets/[Suburb STATE]/[Job Type]/`
-4. Progress saved in `data/progress.json` — stop and resume any time
+## Keyboard shortcuts
 
-## Environment variables
-
-| Variable | Description |
-|----------|-------------|
-| `GOOGLE_SOURCE_FOLDER_ID` | GDrive folder ID of the image dump |
-| `GOOGLE_OAUTH_CLIENT_PATH` | Path to credentials.json (Google OAuth client) |
-| `PORT` | Local server port (default: 3000) |
-
-## Current status
-Phase: Build complete
+| Key | Action |
+|-----|--------|
+| Enter | Tag & Next |
+| S | Skip |
+| Tab | Next field |

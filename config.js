@@ -5,6 +5,8 @@ module.exports = {
   oauthClientPath: process.env.GOOGLE_OAUTH_CLIENT_PATH || require('path').join(__dirname, 'data', 'credentials.json'),
   tokenPath: require('path').join(__dirname, 'data', 'token.json'),
   progressPath: require('path').join(__dirname, 'data', 'progress.json'),
+  dedupReportPath: require('path').join(__dirname, 'data', 'dedup_report.json'),
+  dedupProgressPath: require('path').join(__dirname, 'data', 'dedup_progress.json'),
   destinationRootName: 'TTP Organized Assets',
   port: process.env.PORT || 3000,
   oauthPort: 3001,
@@ -12,9 +14,7 @@ module.exports = {
     'Trusses',
     'Wall Frames',
     'Floor Joists',
-    'Steelwood',
-    'Crane Rental',
-    'Delivery',
+    'Drone',
     'Other'
   ],
   defaultState: 'VIC'

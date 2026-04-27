@@ -16,6 +16,10 @@
     --text: #e8eaf0;
     --muted: #6b7280;
     --success: #22c55e;
+    --danger: #ef4444;
+    --danger-dim: rgba(239,68,68,0.12);
+    --keep: #22c55e;
+    --keep-dim: rgba(34,197,94,0.12);
     --skip: #3b82f6;
     --radius: 12px;
   }
@@ -39,6 +43,7 @@
     border-bottom: 1px solid var(--border);
     background: var(--surface);
     flex-shrink: 0;
+    gap: 16px;
   }
 
   .logo {
@@ -47,12 +52,56 @@
     letter-spacing: 0.04em;
     color: var(--accent);
     text-transform: uppercase;
+    white-space: nowrap;
   }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 3px;
+  }
+
+  .tab {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.15s;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+
+  .tab:hover { color: var(--text); }
+  .tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+
+  .tab .tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--danger);
+    color: white;
+    border-radius: 99px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    margin-left: 5px;
+    line-height: 1.4;
+  }
+
+  .tab.active .tab-count { background: var(--danger); }
 
   .progress-wrap {
     display: flex;
     align-items: center;
     gap: 14px;
+    margin-left: auto;
   }
 
   .progress-label {
@@ -86,12 +135,14 @@
     color: var(--accent);
   }
 
-  /* ── Main layout ── */
-  main {
-    flex: 1;
+  /* ── Screens ── */
+  .screen { display: none; flex: 1; min-height: 0; }
+  .screen.active { display: flex; }
+
+  /* ── Tagger screen ── */
+  #tagger-screen {
     display: grid;
     grid-template-columns: 1fr 360px;
-    min-height: 0;
   }
 
   /* ── Image panel ── */
@@ -105,7 +156,7 @@
     border-right: 1px solid var(--border);
   }
 
-  #current-img {
+  #current-img, #current-video {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
@@ -113,6 +164,8 @@
     border-radius: 4px;
     transition: opacity 0.2s;
   }
+
+  #current-video { background: #000; }
 
   .img-placeholder {
     display: flex;
@@ -219,56 +272,26 @@
     gap: 8px;
   }
 
-  .suburb-row select {
-    width: 90px;
-  }
+  .suburb-row select { width: 90px; }
 
-  /* ── Buttons ── */
-  .btn-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: auto;
-  }
-
-  button {
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    padding: 12px 16px;
-    cursor: pointer;
-    transition: all 0.15s;
-    font-family: inherit;
-    display: flex;
+  .drive-link {
+    display: none;
     align-items: center;
-    justify-content: center;
     gap: 6px;
-  }
-
-  .btn-skip {
-    background: var(--surface);
-    border: 1px solid var(--border);
+    font-size: 12px;
     color: var(--muted);
+    text-decoration: none;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    transition: border-color 0.15s, color 0.15s;
+    width: fit-content;
   }
 
-  .btn-skip:hover { border-color: var(--skip); color: var(--skip); }
+  .drive-link:hover { border-color: var(--skip); color: var(--skip); }
+  .drive-link svg { flex-shrink: 0; }
 
-  .btn-tag {
-    background: var(--accent);
-    color: white;
-  }
-
-  .btn-tag:hover { background: #ea6c0a; }
-  .btn-tag:active { transform: scale(0.98); }
-
-  button:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  /* ── Shortcuts hint ── */
   .shortcuts {
     display: flex;
     gap: 14px;
@@ -292,7 +315,60 @@
     color: var(--text);
   }
 
-  /* ── Done screen ── */
+  .btn-row {
+    display: grid;
+    grid-template-columns: auto 1fr 1fr;
+    gap: 8px;
+    margin-top: auto;
+  }
+
+  button {
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .btn-back {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 12px 14px;
+  }
+
+  .btn-back:hover:not(:disabled) { border-color: var(--text); color: var(--text); }
+
+  .btn-skip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  .btn-skip:hover { border-color: var(--skip); color: var(--skip); }
+
+  .btn-tag {
+    background: var(--accent);
+    color: white;
+  }
+
+  .btn-tag:hover { background: #ea6c0a; }
+  .btn-tag:active { transform: scale(0.98); }
+
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* ── Done screen (tagger) ── */
   #done-screen {
     display: none;
     flex-direction: column;
@@ -329,6 +405,173 @@
   .stat-num { font-size: 32px; font-weight: 700; color: var(--accent); }
   .stat-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 
+  /* ── Dedup screen ── */
+  #dedup-screen {
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .dedup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 16px;
+  }
+
+  .dedup-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .dedup-counter {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .dedup-shortcuts {
+    display: flex;
+    gap: 14px;
+  }
+
+  .dedup-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .dedup-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .dedup-col:first-child { border-right: 1px solid var(--border); }
+
+  .dedup-col-label {
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dedup-col.keep .dedup-col-label { color: var(--keep); background: var(--keep-dim); }
+  .dedup-col.remove .dedup-col-label { color: var(--danger); background: var(--danger-dim); }
+
+  .dedup-col-label .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .dedup-col.keep .dot { background: var(--keep); }
+  .dedup-col.remove .dot { background: var(--danger); }
+
+  .dedup-img-wrap {
+    flex: 1;
+    position: relative;
+    background: #09090f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .dedup-img-wrap img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: none;
+  }
+
+  .dedup-img-wrap img.loaded { display: block; }
+
+  .dedup-img-spinner {
+    width: 28px;
+    height: 28px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .dedup-file-info {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .dedup-filename {
+    font-size: 12px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dedup-size {
+    font-size: 11px;
+    color: var(--border);
+    white-space: nowrap;
+  }
+
+  .dedup-actions {
+    display: flex;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--surface);
+  }
+
+  .btn-trash {
+    background: var(--danger);
+    color: white;
+    min-width: 200px;
+  }
+
+  .btn-trash:hover:not(:disabled) { background: #dc2626; }
+  .btn-trash:active { transform: scale(0.98); }
+
+  .btn-keep-both {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    min-width: 140px;
+  }
+
+  .btn-keep-both:hover:not(:disabled) { border-color: var(--keep); color: var(--keep); }
+
+  /* ── Dedup done screen ── */
+  #dedup-done {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    text-align: center;
+    padding: 40px;
+    flex: 1;
+  }
+
   /* ── Toast ── */
   #toast {
     position: fixed;
@@ -350,13 +593,16 @@
 
   /* ── Responsive ── */
   @media (max-width: 700px) {
-    main {
+    #tagger-screen {
       grid-template-columns: 1fr;
       grid-template-rows: 45vh 1fr;
     }
     .image-panel { border-right: none; border-bottom: 1px solid var(--border); }
     .form-panel { padding: 18px 16px; }
     .progress-bar { width: 100px; }
+    .btn-row { grid-template-columns: auto 1fr 1fr; }
+    .dedup-body { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+    .dedup-col:first-child { border-right: none; border-bottom: 1px solid var(--border); }
   }
 </style>
 </head>
@@ -364,14 +610,21 @@
 
 <header>
   <div class="logo">TTP Asset Tagger</div>
-  <div class="progress-wrap">
+  <div class="tabs">
+    <button class="tab active" id="tab-tagger" onclick="switchTab('tagger')">Tagger</button>
+    <button class="tab" id="tab-dedup" onclick="switchTab('dedup')">
+      Dedup Review<span class="tab-count" id="dedup-tab-count">–</span>
+    </button>
+  </div>
+  <div class="progress-wrap" id="tagger-progress">
     <span class="progress-label" id="progress-label">Loading...</span>
     <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
     <span class="badge" id="progress-badge">–</span>
   </div>
 </header>
 
-<main id="main-grid">
+<!-- ── Tagger Screen ── -->
+<div class="screen active" id="tagger-screen">
   <div class="image-panel" id="image-panel">
     <div class="spinner" id="spinner"></div>
     <div class="img-placeholder" id="placeholder">
@@ -379,9 +632,10 @@
         <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
         <polyline points="21 15 16 10 5 21"/>
       </svg>
-      <span>Loading images...</span>
+      <span>Loading assets...</span>
     </div>
     <img id="current-img" alt="Asset to tag" />
+    <video id="current-video" controls muted playsinline></video>
     <div class="filename-badge" id="filename-badge"></div>
   </div>
 
@@ -390,6 +644,7 @@
       <label>Location</label>
       <div class="suburb-row">
         <input type="text" id="suburb" placeholder="e.g. Coolaroo" autocomplete="off" />
+        <datalist id="suburbs-list"></datalist>
         <select id="state">
           <option>VIC</option><option>NSW</option><option>QLD</option>
           <option>SA</option><option>WA</option><option>TAS</option>
@@ -405,10 +660,13 @@
       </select>
     </div>
 
-    <div class="field">
-      <label>Description <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
-      <textarea id="description" placeholder="e.g. Big house with complex trusses, double storey..."></textarea>
-    </div>
+    <a class="drive-link" id="drive-link" target="_blank" rel="noopener">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+        <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+      </svg>
+      View in Google Drive
+    </a>
 
     <div class="shortcuts">
       <div class="shortcut"><kbd>Enter</kbd> Tag &amp; Next</div>
@@ -417,6 +675,11 @@
     </div>
 
     <div class="btn-row">
+      <button class="btn-back" id="btn-back" onclick="goBack()" disabled title="Previous image">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
       <button class="btn-skip" id="btn-skip" onclick="skip()">Skip →</button>
       <button class="btn-tag" id="btn-tag" onclick="tagAndNext()">Tag &amp; Next ✓</button>
     </div>
@@ -429,24 +692,99 @@
       </svg>
     </div>
     <h2>All done!</h2>
-    <p>Every image in the folder has been tagged or skipped. Check <strong>TTP Organized Assets</strong> in Google Drive for the result.</p>
+    <p>Every asset in the folder has been tagged or skipped. Check <strong>TTP Organized Assets</strong> in Google Drive for the result.</p>
     <div class="done-stats">
       <div class="stat"><span class="stat-num" id="stat-tagged">–</span><span class="stat-label">Tagged</span></div>
       <div class="stat"><span class="stat-num" id="stat-skipped">–</span><span class="stat-label">Skipped</span></div>
     </div>
   </div>
-</main>
+</div>
+
+<!-- ── Dedup Screen ── -->
+<div class="screen" id="dedup-screen">
+  <div class="dedup-header" id="dedup-header">
+    <span class="dedup-title">Review Duplicates</span>
+    <span class="dedup-counter" id="dedup-counter">Loading...</span>
+    <div class="dedup-shortcuts shortcuts">
+      <div class="shortcut"><kbd>Enter</kbd> Trash duplicate</div>
+      <div class="shortcut"><kbd>K</kbd> Keep both</div>
+    </div>
+  </div>
+
+  <div class="dedup-body" id="dedup-body">
+    <div class="dedup-col keep">
+      <div class="dedup-col-label"><span class="dot"></span> Keep</div>
+      <div class="dedup-img-wrap" id="keep-wrap">
+        <div class="dedup-img-spinner" id="keep-spinner"></div>
+        <img id="keep-img" alt="Keep" />
+      </div>
+      <div class="dedup-file-info">
+        <span class="dedup-filename" id="keep-name">—</span>
+        <span class="dedup-size" id="keep-size"></span>
+      </div>
+    </div>
+    <div class="dedup-col remove">
+      <div class="dedup-col-label"><span class="dot"></span> Remove</div>
+      <div class="dedup-img-wrap" id="remove-wrap">
+        <div class="dedup-img-spinner" id="remove-spinner"></div>
+        <img id="remove-img" alt="Remove" />
+      </div>
+      <div class="dedup-file-info">
+        <span class="dedup-filename" id="remove-name">—</span>
+        <span class="dedup-size" id="remove-size"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="dedup-actions" id="dedup-actions">
+    <button class="btn-keep-both" id="btn-keep-both" onclick="dedupKeepBoth()">Keep Both</button>
+    <button class="btn-trash" id="btn-trash" onclick="dedupTrash()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+      </svg>
+      Trash Duplicate
+    </button>
+  </div>
+
+  <div id="dedup-done">
+    <div class="done-icon">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </div>
+    <h2>Duplicates cleared!</h2>
+    <p style="color:var(--muted);max-width:380px;line-height:1.6">All duplicate groups have been reviewed. Trashed files have been moved to Google Drive trash.</p>
+  </div>
+</div>
 
 <div id="toast"></div>
 
 <script>
+  // ── Tagger state ──────────────────────────────────────────────────────────
   let currentFile = null
   let totalFiles = 0
+  let historyStack = []
 
+  // ── Dedup state ───────────────────────────────────────────────────────────
+  let dedupPair = null
+  let dedupBusy = false
+
+  // ── Tab switching ─────────────────────────────────────────────────────────
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
+    document.getElementById('tab-' + tab).classList.add('active')
+    document.getElementById(tab + '-screen').classList.add('active')
+    document.getElementById('tagger-progress').style.display = tab === 'tagger' ? 'flex' : 'none'
+    if (tab === 'dedup') loadDedupNext()
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
   async function init() {
-    const [cfgRes, progRes] = await Promise.all([
+    const [cfgRes, progRes, dedupRes] = await Promise.all([
       fetch('/api/config').then(r => r.json()),
-      fetch('/api/progress').then(r => r.json())
+      fetch('/api/progress').then(r => r.json()),
+      fetch('/api/dedup').then(r => r.json())
     ])
 
     const sel = document.getElementById('job-type')
@@ -458,43 +796,87 @@
 
     totalFiles = progRes.total
     updateProgress(progRes)
+    updateDedupCount(dedupRes.remaining)
     await loadNext()
   }
 
+  function updateDedupCount(n) {
+    const el = document.getElementById('dedup-tab-count')
+    el.textContent = n > 0 ? n : '✓'
+    el.style.background = n > 0 ? 'var(--danger)' : 'var(--success)'
+  }
+
+  // ── Tagger ────────────────────────────────────────────────────────────────
   async function loadNext() {
     setLoading(true)
-
     const res = await fetch('/api/next').then(r => r.json())
     if (res.done) return showDone()
+    displayFile(res.file)
+  }
 
-    currentFile = res.file
-    document.getElementById('current-img').style.display = 'none'
+  function displayFile(file, prefill = null) {
+    currentFile = file
+    const img = document.getElementById('current-img')
+    const video = document.getElementById('current-video')
+    img.style.display = 'none'
+    video.style.display = 'none'
+    video.pause()
     document.getElementById('placeholder').style.display = 'flex'
-    document.getElementById('filename-badge').textContent = currentFile.name
+    document.getElementById('filename-badge').textContent = file.name
     document.getElementById('filename-badge').style.display = 'none'
 
-    const img = document.getElementById('current-img')
-    img.onload = () => {
-      setLoading(false)
-      document.getElementById('placeholder').style.display = 'none'
-      img.style.display = 'block'
-      document.getElementById('filename-badge').style.display = 'block'
-    }
-    img.onerror = () => {
-      setLoading(false)
-      document.getElementById('placeholder').querySelector('span').textContent = 'Could not load image'
-    }
-    img.src = `/api/image/${currentFile.id}`
+    const driveLink = document.getElementById('drive-link')
+    driveLink.href = `https://drive.google.com/file/d/${file.id}/view`
+    driveLink.style.display = 'flex'
 
-    clearForm()
-    document.getElementById('suburb').focus()
+    const isVideo = file.mimeType && file.mimeType.startsWith('video/')
+    const url = `/api/image/${file.id}`
+
+    if (isVideo) {
+      video.oncanplay = () => {
+        setLoading(false)
+        document.getElementById('placeholder').style.display = 'none'
+        video.style.display = 'block'
+        document.getElementById('filename-badge').style.display = 'block'
+        video.oncanplay = null
+      }
+      video.onerror = () => {
+        setLoading(false)
+        document.getElementById('placeholder').querySelector('span').textContent = 'Could not load video'
+      }
+      video.src = url
+      video.load()
+    } else {
+      img.onload = () => {
+        setLoading(false)
+        document.getElementById('placeholder').style.display = 'none'
+        img.style.display = 'block'
+        document.getElementById('filename-badge').style.display = 'block'
+      }
+      img.onerror = () => {
+        setLoading(false)
+        document.getElementById('placeholder').querySelector('span').textContent = 'Could not load image'
+      }
+      img.src = url
+    }
+
+    if (prefill) {
+      document.getElementById('suburb').value = prefill.suburb || ''
+      document.getElementById('state').value = prefill.state || 'VIC'
+      document.getElementById('job-type').value = prefill.jobType || ''
+      document.getElementById('description').value = prefill.description || ''
+    } else {
+      clearForm()
+      document.getElementById('suburb').focus()
+    }
+
+    updateBackBtn()
   }
 
   async function tagAndNext() {
     const suburb = document.getElementById('suburb').value.trim()
     const state = document.getElementById('state').value
     const jobType = document.getElementById('job-type').value
-    const description = document.getElementById('description').value.trim()
 
     if (!suburb) { showToast('Enter a suburb', true); document.getElementById('suburb').focus(); return }
     if (!jobType) { showToast('Select a job type', true); document.getElementById('job-type').focus(); return }
@@ -504,17 +886,17 @@
       const res = await fetch('/api/tag', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileId: currentFile.id, suburb, state, jobType, description })
+        body: JSON.stringify({ fileId: currentFile.id, suburb, state, jobType, description: '' })
       }).then(r => r.json())
 
       if (res.error) throw new Error(res.error)
 
+      historyStack.push({ file: currentFile, suburb, state, jobType, description: '' })
       const prog = await fetch('/api/progress').then(r => r.json())
       updateProgress(prog)
       await loadNext()
     } catch (err) {
       showToast('Error: ' + err.message, true)
-    } finally {
       setBtns(true)
     }
   }
@@ -528,12 +910,24 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileId: currentFile.id })
       })
+      historyStack.push({ file: currentFile, suburb: '', state: 'VIC', jobType: '', description: '' })
       const prog = await fetch('/api/progress').then(r => r.json())
       updateProgress(prog)
       await loadNext()
     } finally {
       setBtns(true)
     }
+  }
+
+  function goBack() {
+    if (historyStack.length === 0) return
+    const prev = historyStack.pop()
+    setLoading(true)
+    displayFile(prev.file, prev)
+  }
+
+  function updateBackBtn() {
+    document.getElementById('btn-back').disabled = historyStack.length === 0
   }
 
   async function showDone() {
@@ -562,29 +956,139 @@
   function setBtns(on) {
     document.getElementById('btn-tag').disabled = !on
     document.getElementById('btn-skip').disabled = !on
+    if (on) updateBackBtn()
+    else document.getElementById('btn-back').disabled = true
   }
 
   function clearForm() {
-    document.getElementById('suburb').value = ''
+    const suburbInput = document.getElementById('suburb')
+    suburbInput.removeAttribute('list')
+    suburbInput.value = ''
     document.getElementById('job-type').value = ''
-    document.getElementById('description').value = ''
   }
 
-  function showToast(msg, isError = false) {
-    const t = document.getElementById('toast')
-    t.textContent = msg
-    t.className = isError ? 'show error' : 'show'
-    clearTimeout(t._timer)
-    t._timer = setTimeout(() => t.className = '', 2500)
-  }
+  document.getElementById('suburb').addEventListener('input', function() {
+    if (!this.getAttribute('list')) this.setAttribute('list', 'suburbs-list')
+  })
 
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey && document.activeElement.tagName !== 'TEXTAREA') {
-      e.preventDefault()
-      tagAndNext()
+  // ── Dedup ─────────────────────────────────────────────────────────────────
+  async function loadDedupNext() {
+    const res = await fetch('/api/dedup').then(r => r.json())
+    updateDedupCount(res.remaining)
+
+    if (!res.next) {
+      document.getElementById('dedup-body').style.display = 'none'
+      document.getElementById('dedup-actions').style.display = 'none'
+      document.getElementById('dedup-header').style.display = 'none'
+      document.getElementById('dedup-done').style.display = 'flex'
+      return
     }
-    if ((e.key === 's' || e.key === 'S') && document.activeElement.tagName === 'BODY') {
-      skip()
+
+    document.getElementById('dedup-body').style.display = 'grid'
+    document.getElementById('dedup-actions').style.display = 'flex'
+    document.getElementById('dedup-header').style.display = 'flex'
+    document.getElementById('dedup-done').style.display = 'none'
+
+    dedupPair = res.next
+    const done = res.total - res.remaining
+    document.getElementById('dedup-counter').textContent = `${done + 1} of ${res.total}`
+
+    loadDedupImage('keep-img', 'keep-spinner', res.next.keepFile)
+    loadDedupImage('remove-img', 'remove-spinner', res.next.killFile)
+
+    document.getElementById('keep-name').textContent = res.next.keepFile.name
+    document.getElementById('keep-size').textContent = fmtSize(res.next.keepFile.size)
+    document.getElementById('remove-name').textContent = res.next.killFile.name
+    document.getElementById('remove-size').textContent = fmtSize(res.next.killFile.size)
+
+    setDedupBtns(true)
+  }
+
+  function loadDedupImage(imgId, spinnerId, file) {
+    const img = document.getElementById(imgId)
+    const spinner = document.getElementById(spinnerId)
+    img.classList.remove('loaded')
+    spinner.style.display = 'block'
+    img.onload = () => { spinner.style.display = 'none'; img.classList.add('loaded') }
+    img.onerror = () => { spinner.style.display = 'none' }
+    img.src = `/api/image/${file.id}`
+  }
+
+  async function dedupTrash() {
+    if (!dedupPair || dedupBusy) return
+    setDedupBtns(false)
+    try {
+      const res = await fetch('/api/dedup/trash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ killId: dedupPair.killFile.id })
+      }).then(r => r.json())
+      if (res.error) throw new Error(res.error)
+      showToast('Trashed: ' + dedupPair.killFile.name)
+      await loadDedupNext()
+    } catch (err) {
+      showToast('Error: ' + err.message, true)
+      setDedupBtns(true)
+    }
+  }
+
+  async function dedupKeepBoth() {
+    if (!dedupPair || dedupBusy) return
+    setDedupBtns(false)
+    await fetch('/api/dedup/keep', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ killId: dedupPair.killFile.id })
+    })
+    showToast('Kept both — skipped')
+    await loadDedupNext()
+  }
+
+  function setDedupBtns(on) {
+    dedupBusy = !on
+    document.getElementById('btn-trash').disabled = !on
+    document.getElementById('btn-keep-both').disabled = !on
+  }
+
+  function fmtSize(bytes) {
+    if (!bytes) return ''
+    if (bytes > 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+    return (bytes / 1024).toFixed(0) + ' KB'
+  }
+
+  // ── Suburb list ───────────────────────────────────────────────────────────
+  const VIC_SUBURBS = ["Abbotsford","Aberfeldie","Albanvale","Albert Park","Albion","Altona","Altona Meadows","Altona North","Anglesea","Armadale","Ascot Vale","Ashburton","Ashwood","Aspendale","Aspendale Gardens","Attwood","Avondale Heights","Balaclava","Balwyn","Balwyn North","Bangholme","Bannockburn","Baxter","Baywater","Beaconsfield","Beaconsfield Upper","Bealiba","Belgrave","Belgrave Heights","Belgrave South","Bellfield","Bendigo","Bentleigh","Bentleigh East","Berwick","Black Rock","Blackburn","Blackburn North","Blackburn South","Blackrock","Bonbeach","Box Hill","Box Hill North","Box Hill South","Braybrook","Brighton","Brighton East","Briar Hill","Broadmeadows","Brunswick","Brunswick East","Brunswick West","Bulleen","Bundoora","Burnley","Burwood","Burwood East","Campbellfield","Canterbury","Carlton","Carlton North","Carnegie","Caroline Springs","Carrum","Carrum Downs","Caulfield","Caulfield East","Caulfield North","Caulfield South","Chadstone","Chelsea","Chelsea Heights","Cheltenham","Chirnside Park","Clarinda","Clayton","Clayton South","Clifton Hill","Coburg","Coburg North","Collingwood","Coolaroo","Craigieburn","Cranbourne","Cranbourne East","Cranbourne North","Cranbourne South","Cranbourne West","Croydon","Croydon Hills","Croydon North","Croydon South","Dallas","Dandenong","Dandenong North","Dandenong South","Darebin","Deepdene","Deer Park","Delahey","Diamond Creek","Dingley Village","Donvale","Doncaster","Doncaster East","Doreen","Doveton","Eaglemont","East Melbourne","Edithvale","Elsternwick","Eltham","Eltham North","Elwood","Endeavour Hills","Epping","Essendon","Essendon Fields","Essendon North","Essendon West","Fairy Meadow","Fawkner","Ferntree Gully","Fitzroy","Fitzroy North","Flemington","Footscray","Forest Hill","Frankston","Frankston North","Frankston South","Glenferrie","Glenroy","Glen Iris","Glen Huntly","Glen Waverley","Glenwaverley","Gowanbrae","Greensborough","Greenvale","Hadfield","Hampton","Hampton East","Hampton Park","Hastings","Hawthorn","Hawthorn East","Heidelberg","Heidelberg Heights","Heidelberg West","Hillside","Hoppers Crossing","Hughesdale","Huntingdale","Hurstbridge","Ivanhoe","Ivanhoe East","Jacana","Kealba","Keilor","Keilor Downs","Keilor East","Keilor Lodge","Keilor North","Keilor Park","Kensington","Kew","Kew East","Keysborough","Kilsyth","Kilsyth South","Kingsbury","Kings Park","Kingsville","Knoxfield","Kooyong","Kurunjang","Lalor","Langwarrin","Laverton","Laverton North","Lilydale","Lower Plenty","Lynbrook","Lyndhurst","Lysterfield","Macleod","Maidstone","Malvern","Malvern East","Maribyrnong","McKinnon","Meadow Heights","Melbourne","Melton","Melton South","Melton West","Mentone","Mernda","Middle Park","Mill Park","Mitcham","Moe","Moolap","Moonee Ponds","Moorabbin","Mooroolbark","Mooroopna","Mordialloc","Mount Evelyn","Mount Waverley","Mulgrave","Murrumbeena","Narre Warren","Narre Warren North","Narre Warren South","Newport","Noble Park","Noble Park North","Niddrie","Northcote","North Melbourne","North Richmond","Nunawading","Oakleigh","Oakleigh East","Oakleigh South","Officer","Olinda","Ormond","Pakenham","Park Orchards","Parkdale","Parkville","Pascoe Vale","Pascoe Vale South","Patterson Lakes","Plenty","Point Cook","Port Melbourne","Portarlington","Prahran","Preston","Princes Hill","Reservoir","Richmond","Ringwood","Ringwood East","Ringwood North","Ripponlea","Rockbank","Rosanna","Rowville","Roxburgh Park","Sandringham","Scoresby","Seaholme","Seaford","Seabrook","Seagrove","Skye","South Melbourne","South Morang","South Yarra","Southbank","Spotswood","Springvale","Springvale South","St Albans","St Kilda","St Kilda East","St Kilda West","Strathmore","Strathmore Heights","Sunbury","Sunshine","Sunshine North","Sunshine West","Surrey Hills","Sydenham","Tarneit","Taylors Hill","Taylors Lakes","Templestowe","Templestowe Lower","Thornbury","Thomastown","Toorak","Tullamarine","Upwey","Vermont","Vermont South","Viewbank","Wantirna","Wantirna South","Warrandyte","Warrandyte South","Waterways","Watsonia","Watsonia North","Werribee","Werribee South","West Footscray","West Melbourne","Westmeadows","Wheelers Hill","Whittlesea","Williams Landing","Williamstown","Williamstown North","Windsor","Wodonga","Wollert","Wonga Park","Woodleigh","Wyndham Vale","Yallambie","Yarra Glen","Yarra Junction","Yarrambat","Yarraville"]
+
+  function updateSuburbList() {
+    const state = document.getElementById('state').value
+    const dl = document.getElementById('suburbs-list')
+    dl.innerHTML = ''
+    if (state === 'VIC') {
+      VIC_SUBURBS.forEach(s => {
+        const opt = document.createElement('option')
+        opt.value = s
+        dl.appendChild(opt)
+      })
+    }
+  }
+
+  document.getElementById('state').addEventListener('change', updateSuburbList)
+  updateSuburbList()
+
+  // ── Keyboard ──────────────────────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    const activeScreen = document.querySelector('.screen.active')?.id
+
+    if (activeScreen === 'tagger-screen') {
+      if (e.key === 'Enter' && !e.shiftKey && document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault(); tagAndNext()
+      }
+      if ((e.key === 's' || e.key === 'S') && document.activeElement.tagName === 'BODY') skip()
+    }
+
+    if (activeScreen === 'dedup-screen') {
+      if (e.key === 'Enter') { e.preventDefault(); dedupTrash() }
+      if (e.key === 'k' || e.key === 'K') dedupKeepBoth()
     }
   })
 
