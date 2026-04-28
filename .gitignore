@@ -6,6 +6,7 @@ data/dedup_progress.json
 data/cluster_report.json
 data/cluster_progress.json
 data/geocode_cache.json
+data/cluster_tag_log.json
 data/credentials.json
 data/cull_log.json
 data/recon_report.json
