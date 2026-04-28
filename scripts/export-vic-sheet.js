@@ -51,18 +51,24 @@ function styleHyperlinkCell(cell, url, label) {
 function buildClusterSheet(wb, report, progress) {
   const ws = wb.addWorksheet('Clusters', { views: [{ state: 'frozen', ySplit: 1 }] })
 
-  ws.columns = [
+  // Build column list: fixed cols + one tickable col per job type
+  const baseCols = [
     { header: '#',            key: 'idx',      width: 5 },
     { header: 'Suburb',       key: 'suburb',   width: 20 },
     { header: 'State',        key: 'state',    width: 7 },
     { header: 'Date',         key: 'date',     width: 12 },
     { header: 'Files',        key: 'count',    width: 7 },
     { header: 'Folder',       key: 'folder',   width: 14 },
-    { header: 'Sample photo', key: 'sample',   width: 32 },
-    { header: 'Job Type',     key: 'jobType',  width: 16 },
-    { header: 'Notes',        key: 'notes',    width: 32 },
-    { header: 'Status',       key: 'status',   width: 12 }
+    { header: 'Sample photo', key: 'sample',   width: 32 }
   ]
+  const jobCols = config.jobTypes.map(jt => ({
+    header: jt, key: 'jt_' + jt.replace(/\s+/g, '_'), width: 13
+  }))
+  const tailCols = [
+    { header: 'Notes',  key: 'notes',  width: 32 },
+    { header: 'Status', key: 'status', width: 14 }
+  ]
+  ws.columns = [...baseCols, ...jobCols, ...tailCols]
   styleHeader(ws.getRow(1))
 
   const sorted = [...report.clusters].sort((a, b) => b.fileCount - a.fileCount)
@@ -70,7 +76,7 @@ function buildClusterSheet(wb, report, progress) {
   sorted.forEach((c, i) => {
     const firstFile = c.files[0]
     const folderId = progress.tagged?.[firstFile.id]?.destFolderId
-    const row = ws.addRow({
+    const rowData = {
       idx: i + 1,
       suburb: c.suburb,
       state: c.state,
@@ -78,63 +84,87 @@ function buildClusterSheet(wb, report, progress) {
       count: c.fileCount,
       folder: '',
       sample: '',
-      jobType: '',
       notes: '',
       status: ''
-    })
+    }
+    for (const jt of config.jobTypes) rowData['jt_' + jt.replace(/\s+/g, '_')] = false
+    const row = ws.addRow(rowData)
     if (folderId) styleHyperlinkCell(row.getCell('folder'), driveFolderUrl(folderId), 'Open folder')
     styleHyperlinkCell(row.getCell('sample'), driveFileUrl(firstFile.id), firstFile.name)
   })
 
-  // AutoFilter on header row
-  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 10 } }
+  // Filter spans header + ALL data rows so values populate in dropdown
+  const lastRow = sorted.length + 1
+  const lastCol = ws.columns.length
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: lastRow, column: lastCol } }
 
-  // Data validation on Job Type and Status
-  const jobTypeList = `"${config.jobTypes.join(',')}"`
+  // Data validation: TRUE/FALSE on each job-type column, list on Status
+  const jobStartCol = baseCols.length + 1               // 8 (= H)
+  const jobEndCol   = jobStartCol + config.jobTypes.length - 1  // 12 (= L)
+  const statusCol   = lastCol                            // 14 (= N)
   const statusList  = '"Done,Skip,In Progress"'
-  for (let r = 2; r <= sorted.length + 1; r++) {
-    ws.getCell(`H${r}`).dataValidation = { type: 'list', allowBlank: true, formulae: [jobTypeList] }
-    ws.getCell(`J${r}`).dataValidation = { type: 'list', allowBlank: true, formulae: [statusList] }
+  for (let r = 2; r <= lastRow; r++) {
+    for (let c = jobStartCol; c <= jobEndCol; c++) {
+      const cell = ws.getCell(r, c)
+      cell.dataValidation = { type: 'list', allowBlank: true, formulae: ['"TRUE,FALSE"'] }
+      cell.alignment = { horizontal: 'center' }
+    }
+    ws.getCell(r, statusCol).dataValidation = { type: 'list', allowBlank: true, formulae: [statusList] }
   }
 }
 
 function buildUngroupedSheet(wb, report) {
   const ws = wb.addWorksheet('Ungrouped', { views: [{ state: 'frozen', ySplit: 1 }] })
 
-  ws.columns = [
-    { header: '#',         key: 'idx',     width: 5 },
-    { header: 'File name', key: 'name',    width: 36 },
-    { header: 'MIME',      key: 'mime',    width: 14 },
-    { header: 'Reason',    key: 'reason',  width: 16 },
-    { header: 'Photo',     key: 'photo',   width: 14 },
-    { header: 'Suburb',    key: 'suburb',  width: 18 },
-    { header: 'Date',      key: 'date',    width: 12 },
-    { header: 'Job Type',  key: 'jobType', width: 16 },
-    { header: 'Notes',     key: 'notes',   width: 32 },
-    { header: 'Status',    key: 'status',  width: 12 }
+  const baseCols = [
+    { header: '#',         key: 'idx',    width: 5 },
+    { header: 'File name', key: 'name',   width: 36 },
+    { header: 'MIME',      key: 'mime',   width: 14 },
+    { header: 'Reason',    key: 'reason', width: 16 },
+    { header: 'Photo',     key: 'photo',  width: 14 },
+    { header: 'Suburb',    key: 'suburb', width: 18 },
+    { header: 'Date',      key: 'date',   width: 12 }
   ]
+  const jobCols = config.jobTypes.map(jt => ({
+    header: jt, key: 'jt_' + jt.replace(/\s+/g, '_'), width: 13
+  }))
+  const tailCols = [
+    { header: 'Notes',  key: 'notes',  width: 32 },
+    { header: 'Status', key: 'status', width: 14 }
+  ]
+  ws.columns = [...baseCols, ...jobCols, ...tailCols]
   styleHeader(ws.getRow(1))
 
   const items = report.ungrouped || []
   items.forEach((u, i) => {
-    const row = ws.addRow({
+    const rowData = {
       idx: i + 1,
       name: u.name,
       mime: u.mimeType,
       reason: u.reason,
       photo: '',
-      suburb: '', date: '', jobType: '', notes: '', status: ''
-    })
+      suburb: '', date: '', notes: '', status: ''
+    }
+    for (const jt of config.jobTypes) rowData['jt_' + jt.replace(/\s+/g, '_')] = false
+    const row = ws.addRow(rowData)
     styleHyperlinkCell(row.getCell('photo'), driveFileUrl(u.id), 'Open')
   })
 
-  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: 10 } }
+  const lastRow = items.length + 1
+  const lastCol = ws.columns.length
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: lastRow, column: lastCol } }
 
-  const jobTypeList = `"${config.jobTypes.join(',')}"`
+  const jobStartCol = baseCols.length + 1
+  const jobEndCol   = jobStartCol + config.jobTypes.length - 1
+  const statusCol   = lastCol
   const statusList  = '"Done,Skip,In Progress"'
-  for (let r = 2; r <= items.length + 1; r++) {
-    ws.getCell(`H${r}`).dataValidation = { type: 'list', allowBlank: true, formulae: [jobTypeList] }
-    ws.getCell(`J${r}`).dataValidation = { type: 'list', allowBlank: true, formulae: [statusList] }
+  for (let r = 2; r <= lastRow; r++) {
+    for (let c = jobStartCol; c <= jobEndCol; c++) {
+      const cell = ws.getCell(r, c)
+      cell.dataValidation = { type: 'list', allowBlank: true, formulae: ['"TRUE,FALSE"'] }
+      cell.alignment = { horizontal: 'center' }
+    }
+    ws.getCell(r, statusCol).dataValidation = { type: 'list', allowBlank: true, formulae: [statusList] }
   }
 }
 
