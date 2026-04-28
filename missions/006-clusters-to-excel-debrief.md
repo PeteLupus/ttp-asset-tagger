@@ -4,6 +4,15 @@
 
 **Outcome:** Shipped, awaiting Vic's feedback.
 
+**Update 2026-04-28 (later):** Vic asked for a single multi-select Job Type column instead of separate per-type checkboxes. Tried two iterations:
+
+1. **5-column TRUE/FALSE** (commit `518ff33`) — rejected. Too clunky.
+2. **Native Google Sheet + Sheets API multi-select** (commit `ce9a86e`) — Sheets API call blocked because the OAuth credentials live in a GCP project the operator doesn't own (`1036350278736`), so we can't enable Sheets API there. Cannot fix without reissuing OAuth credentials in the operator's own GCP project.
+
+**Workaround in place:** the script now uploads as a native Google Sheet with a populated single-select Job Type dropdown. Operator will download to Excel, manually flip the Job Type column to multi-select / clean up filters, then re-upload. Picks up here when the cleaned file is back in Drive.
+
+Latest Sheet ID: `1L9cAY6m9ZeEWWSc0ZYnqmGtkBR-y768mvjKUhENL71s`. Old `.xlsx` and intermediate Sheet versions trashed by the upload step.
+
 **What worked:**
 - Pure read of existing reports (`cluster_report.json` + `progress.json`) → no new data pipeline. Folder IDs already on every tagged file via `progress.tagged[id].destFolderId` from cluster-tag-all.
 - `exceljs` for the .xlsx build: native HYPERLINK objects, frozen header, autofilter, data validation drop-downs in two cells (Job Type from `config.jobTypes`, Status). ~150 KB lib, MIT, zero deps.
