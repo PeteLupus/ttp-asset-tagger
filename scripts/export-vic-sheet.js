@@ -16,7 +16,7 @@ const ROOT_DIR        = path.join(__dirname, '..')
 const REPORT_PATH     = config.clusterReportPath
 const PROGRESS_PATH   = config.progressPath
 const OUT_PATH        = path.join(ROOT_DIR, 'data', 'clusters_for_vic.xlsx')
-const DRIVE_FILE_NAME = 'clusters_for_vic.xlsx'
+const DRIVE_FILE_NAME = 'clusters_for_vic'  // becomes a native Google Sheet
 
 // ── Auth (same shape as cull.js / cluster-tag-all.js) ─────────────────────────
 async function getAuth() {
@@ -51,24 +51,18 @@ function styleHyperlinkCell(cell, url, label) {
 function buildClusterSheet(wb, report, progress) {
   const ws = wb.addWorksheet('Clusters', { views: [{ state: 'frozen', ySplit: 1 }] })
 
-  // Build column list: fixed cols + one tickable col per job type
-  const baseCols = [
+  ws.columns = [
     { header: '#',            key: 'idx',      width: 5 },
     { header: 'Suburb',       key: 'suburb',   width: 20 },
     { header: 'State',        key: 'state',    width: 7 },
     { header: 'Date',         key: 'date',     width: 12 },
     { header: 'Files',        key: 'count',    width: 7 },
     { header: 'Folder',       key: 'folder',   width: 14 },
-    { header: 'Sample photo', key: 'sample',   width: 32 }
+    { header: 'Sample photo', key: 'sample',   width: 32 },
+    { header: 'Job Type',     key: 'jobType',  width: 32 },
+    { header: 'Notes',        key: 'notes',    width: 32 },
+    { header: 'Status',       key: 'status',   width: 14 }
   ]
-  const jobCols = config.jobTypes.map(jt => ({
-    header: jt, key: 'jt_' + jt.replace(/\s+/g, '_'), width: 13
-  }))
-  const tailCols = [
-    { header: 'Notes',  key: 'notes',  width: 32 },
-    { header: 'Status', key: 'status', width: 14 }
-  ]
-  ws.columns = [...baseCols, ...jobCols, ...tailCols]
   styleHeader(ws.getRow(1))
 
   const sorted = [...report.clusters].sort((a, b) => b.fileCount - a.fileCount)
@@ -76,7 +70,7 @@ function buildClusterSheet(wb, report, progress) {
   sorted.forEach((c, i) => {
     const firstFile = c.files[0]
     const folderId = progress.tagged?.[firstFile.id]?.destFolderId
-    const rowData = {
+    const row = ws.addRow({
       idx: i + 1,
       suburb: c.suburb,
       state: c.state,
@@ -84,118 +78,123 @@ function buildClusterSheet(wb, report, progress) {
       count: c.fileCount,
       folder: '',
       sample: '',
+      jobType: '',
       notes: '',
       status: ''
-    }
-    for (const jt of config.jobTypes) rowData['jt_' + jt.replace(/\s+/g, '_')] = false
-    const row = ws.addRow(rowData)
+    })
     if (folderId) styleHyperlinkCell(row.getCell('folder'), driveFolderUrl(folderId), 'Open folder')
     styleHyperlinkCell(row.getCell('sample'), driveFileUrl(firstFile.id), firstFile.name)
   })
 
-  // Filter spans header + ALL data rows so values populate in dropdown
   const lastRow = sorted.length + 1
-  const lastCol = ws.columns.length
-  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: lastRow, column: lastCol } }
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: lastRow, column: ws.columns.length } }
 
-  // Data validation: TRUE/FALSE on each job-type column, list on Status
-  const jobStartCol = baseCols.length + 1               // 8 (= H)
-  const jobEndCol   = jobStartCol + config.jobTypes.length - 1  // 12 (= L)
-  const statusCol   = lastCol                            // 14 (= N)
-  const statusList  = '"Done,Skip,In Progress"'
+  const jobList    = `"${config.jobTypes.join(',')}"`
+  const statusList = '"Done,Skip,In Progress"'
   for (let r = 2; r <= lastRow; r++) {
-    for (let c = jobStartCol; c <= jobEndCol; c++) {
-      const cell = ws.getCell(r, c)
-      cell.dataValidation = { type: 'list', allowBlank: true, formulae: ['"TRUE,FALSE"'] }
-      cell.alignment = { horizontal: 'center' }
-    }
-    ws.getCell(r, statusCol).dataValidation = { type: 'list', allowBlank: true, formulae: [statusList] }
+    ws.getCell(`H${r}`).dataValidation = { type: 'list', allowBlank: true, formulae: [jobList] }
+    ws.getCell(`J${r}`).dataValidation = { type: 'list', allowBlank: true, formulae: [statusList] }
   }
 }
 
 function buildUngroupedSheet(wb, report) {
   const ws = wb.addWorksheet('Ungrouped', { views: [{ state: 'frozen', ySplit: 1 }] })
 
-  const baseCols = [
-    { header: '#',         key: 'idx',    width: 5 },
-    { header: 'File name', key: 'name',   width: 36 },
-    { header: 'MIME',      key: 'mime',   width: 14 },
-    { header: 'Reason',    key: 'reason', width: 16 },
-    { header: 'Photo',     key: 'photo',  width: 14 },
-    { header: 'Suburb',    key: 'suburb', width: 18 },
-    { header: 'Date',      key: 'date',   width: 12 }
+  ws.columns = [
+    { header: '#',         key: 'idx',     width: 5 },
+    { header: 'File name', key: 'name',    width: 36 },
+    { header: 'MIME',      key: 'mime',    width: 14 },
+    { header: 'Reason',    key: 'reason',  width: 16 },
+    { header: 'Photo',     key: 'photo',   width: 14 },
+    { header: 'Suburb',    key: 'suburb',  width: 18 },
+    { header: 'Date',      key: 'date',    width: 12 },
+    { header: 'Job Type',  key: 'jobType', width: 32 },
+    { header: 'Notes',     key: 'notes',   width: 32 },
+    { header: 'Status',    key: 'status',  width: 14 }
   ]
-  const jobCols = config.jobTypes.map(jt => ({
-    header: jt, key: 'jt_' + jt.replace(/\s+/g, '_'), width: 13
-  }))
-  const tailCols = [
-    { header: 'Notes',  key: 'notes',  width: 32 },
-    { header: 'Status', key: 'status', width: 14 }
-  ]
-  ws.columns = [...baseCols, ...jobCols, ...tailCols]
   styleHeader(ws.getRow(1))
 
   const items = report.ungrouped || []
   items.forEach((u, i) => {
-    const rowData = {
+    const row = ws.addRow({
       idx: i + 1,
       name: u.name,
       mime: u.mimeType,
       reason: u.reason,
       photo: '',
-      suburb: '', date: '', notes: '', status: ''
-    }
-    for (const jt of config.jobTypes) rowData['jt_' + jt.replace(/\s+/g, '_')] = false
-    const row = ws.addRow(rowData)
+      suburb: '', date: '', jobType: '', notes: '', status: ''
+    })
     styleHyperlinkCell(row.getCell('photo'), driveFileUrl(u.id), 'Open')
   })
 
   const lastRow = items.length + 1
-  const lastCol = ws.columns.length
-  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: lastRow, column: lastCol } }
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: lastRow, column: ws.columns.length } }
 
-  const jobStartCol = baseCols.length + 1
-  const jobEndCol   = jobStartCol + config.jobTypes.length - 1
-  const statusCol   = lastCol
-  const statusList  = '"Done,Skip,In Progress"'
+  const jobList    = `"${config.jobTypes.join(',')}"`
+  const statusList = '"Done,Skip,In Progress"'
   for (let r = 2; r <= lastRow; r++) {
-    for (let c = jobStartCol; c <= jobEndCol; c++) {
-      const cell = ws.getCell(r, c)
-      cell.dataValidation = { type: 'list', allowBlank: true, formulae: ['"TRUE,FALSE"'] }
-      cell.alignment = { horizontal: 'center' }
-    }
-    ws.getCell(r, statusCol).dataValidation = { type: 'list', allowBlank: true, formulae: [statusList] }
+    ws.getCell(`H${r}`).dataValidation = { type: 'list', allowBlank: true, formulae: [jobList] }
+    ws.getCell(`J${r}`).dataValidation = { type: 'list', allowBlank: true, formulae: [statusList] }
   }
 }
 
 async function uploadToDrive(drive, localPath) {
+  // Find any existing copy (Sheet OR xlsx) so we can supersede it
   const existing = await drive.files.list({
-    q: `name = '${DRIVE_FILE_NAME}' and '${config.sourceFolderId}' in parents and trashed = false`,
-    fields: 'files(id)',
-    pageSize: 1
+    q: `(name = '${DRIVE_FILE_NAME}' or name = '${DRIVE_FILE_NAME}.xlsx') and '${config.sourceFolderId}' in parents and trashed = false`,
+    fields: 'files(id, name, mimeType)',
+    pageSize: 5
   })
-
-  const media = {
-    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    body: fs.createReadStream(localPath)
+  for (const f of existing.data.files || []) {
+    await drive.files.update({ fileId: f.id, requestBody: { trashed: true } }).catch(() => {})
   }
 
-  if (existing.data.files && existing.data.files.length > 0) {
-    const id = existing.data.files[0].id
-    await drive.files.update({ fileId: id, media })
-    return { id, replaced: true }
-  }
-
+  // Create as native Google Sheet (Drive auto-converts the uploaded xlsx body)
   const created = await drive.files.create({
     requestBody: {
       name: DRIVE_FILE_NAME,
       parents: [config.sourceFolderId],
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      mimeType: 'application/vnd.google-apps.spreadsheet'
     },
-    media,
+    media: {
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      body: fs.createReadStream(localPath)
+    },
     fields: 'id'
   })
-  return { id: created.data.id, replaced: false }
+  return { id: created.data.id }
+}
+
+// Apply multi-select dropdown to Job Type column on both sheets
+async function applyMultiSelectValidation(sheets, spreadsheetId) {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets(properties(sheetId,title,gridProperties))' })
+  const requests = []
+
+  for (const s of meta.data.sheets) {
+    const sheetId = s.properties.sheetId
+    const title   = s.properties.title
+    const rowCount = s.properties.gridProperties.rowCount
+    // Job Type column is H (index 7) on both sheets per ws.columns above
+    const jobCol = 7
+
+    requests.push({
+      setDataValidation: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: rowCount, startColumnIndex: jobCol, endColumnIndex: jobCol + 1 },
+        rule: {
+          condition: {
+            type: 'ONE_OF_LIST',
+            values: config.jobTypes.map(v => ({ userEnteredValue: v }))
+          },
+          showCustomUi: true,
+          strict: false
+        }
+      }
+    })
+  }
+
+  if (requests.length) {
+    await sheets.spreadsheets.batchUpdate({ spreadsheetId, requestBody: { requests } })
+  }
 }
 
 async function run() {
@@ -221,12 +220,27 @@ async function run() {
   await wb.xlsx.writeFile(OUT_PATH)
   console.log(`\n  Local file  : ${OUT_PATH}`)
 
-  console.log('  Uploading to Drive...')
+  console.log('  Uploading to Drive (as Google Sheet)...')
   const auth  = await getAuth()
-  const drive = google.drive({ version: 'v3', auth })
+  const drive  = google.drive({ version: 'v3', auth })
+  const sheets = google.sheets({ version: 'v4', auth })
   const result = await uploadToDrive(drive, OUT_PATH)
-  console.log(`  Drive       : ${result.replaced ? 'replaced' : 'created'} (id: ${result.id})`)
-  console.log(`  Drive URL   : ${driveFileUrl(result.id)}\n`)
+  console.log(`  Drive       : created Google Sheet (id: ${result.id})`)
+
+  // Try Sheets API for programmatic multi-select; fall back gracefully if API blocked.
+  try {
+    await applyMultiSelectValidation(sheets, result.id)
+    console.log('  Multi-select validation applied via Sheets API.')
+  } catch (err) {
+    if (/has not been used|has not been enabled|disabled/i.test(err.message)) {
+      console.log('  Sheets API unavailable — Job Type ships as single-select dropdown.')
+      console.log('  Vic toggles multi-select once: column H header → Data → Data validation')
+      console.log('  → edit rule → check "Allow multiple values" → save.')
+    } else {
+      throw err
+    }
+  }
+  console.log(`  Sheet URL   : https://docs.google.com/spreadsheets/d/${result.id}/edit\n`)
 }
 
 run().catch(err => { console.error('[FATAL]', err.message); process.exit(1) })
