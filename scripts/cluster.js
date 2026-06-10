@@ -108,6 +108,21 @@ function parseExifTime(t) {
   return m ? `${m[1]}-${m[2]}-${m[3]}` : null
 }
 
+// Fallback date from filename: Android "20150623_093229.jpg", "IMG_20180101_..",
+// "2019-05-29..", etc. Returns YYYY-MM-DD or null.
+function parseFilenameDate(name) {
+  if (!name) return null
+  const m = name.match(/(20[0-2]\d)[-_]?(0[1-9]|1[0-2])[-_]?(0[1-9]|[12]\d|3[01])/)
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : null
+}
+
+// Best-effort shoot date for a Drive file: EXIF time → filename → Drive modifiedTime.
+function bestDate(f) {
+  return parseExifTime(f.imageMediaMetadata && f.imageMediaMetadata.time)
+    || parseFilenameDate(f.name)
+    || (f.modifiedTime ? f.modifiedTime.slice(0, 10) : null)
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function run() {
   console.log('\n╔══════════════════════════════════════════╗')
@@ -131,8 +146,11 @@ async function run() {
     if (loc && typeof loc.latitude === 'number' && typeof loc.longitude === 'number' && date) {
       withGPS.push({ file: f, lat: loc.latitude, lng: loc.longitude, date })
     } else {
+      // Keep the full file so these can still be recovered into an Unsorted_<date>
+      // cluster below — they used to be silently dropped (orphaned ~150 photos,
+      // incl. all of 2015/2023, because they carry no GPS EXIF to geocode).
       ungrouped.push({
-        id: f.id, name: f.name, mimeType: f.mimeType,
+        file: f, id: f.id, name: f.name, mimeType: f.mimeType,
         reason: !meta ? 'no_metadata' : !loc ? 'no_gps' : !date ? 'no_date' : 'unknown'
       })
     }
@@ -163,7 +181,7 @@ async function run() {
   const groups = {}
   for (const item of withGPS) {
     if (!item.suburb) {
-      ungrouped.push({ id: item.file.id, name: item.file.name, mimeType: item.file.mimeType, reason: 'geocode_failed' })
+      ungrouped.push({ file: item.file, id: item.file.id, name: item.file.name, mimeType: item.file.mimeType, reason: 'geocode_failed' })
       continue
     }
     const key = `${item.suburb}|${item.state}|${item.date}`
@@ -189,21 +207,63 @@ async function run() {
     files: g.files.sort((a, b) => (a.exifTime || '').localeCompare(b.exifTime || ''))
   })).sort((a, b) => (b.fileCount - a.fileCount))
 
+  // ── Recover the GPS-less / geocode-failed images into Unsorted_<date> clusters ──
+  // These were previously dropped on the floor. They're real TTP photos that simply
+  // lack location EXIF (older Android shots, WhatsApp re-saves). We can't know the
+  // suburb, so the honest label is "Unsorted"; date comes from EXIF → filename →
+  // Drive modifiedTime. fetch/bulk-fetch treat these like any other cluster.
+  const unsortedGroups = {}
+  let undatedSeq = 0
+  for (const u of ungrouped) {
+    if (!u.file || !(u.mimeType || '').startsWith('image/')) continue
+    const date = bestDate(u.file) || 'undated'
+    const key = `Unsorted|--|${date}`
+    if (!unsortedGroups[key]) unsortedGroups[key] = { suburb: 'Unsorted', state: '--', date, files: [] }
+    unsortedGroups[key].files.push({
+      id: u.file.id,
+      name: u.file.name,
+      mimeType: u.file.mimeType,
+      size: parseInt(u.file.size || 0),
+      parents: u.file.parents || [],
+      exifTime: u.file.imageMediaMetadata?.time || null,
+      lat: null,
+      lng: null,
+      recovered: true,
+      recovered_reason: u.reason
+    })
+  }
+  const unsortedClusters = Object.entries(unsortedGroups).map(([id, g]) => ({
+    id: Buffer.from(id).toString('base64').replace(/=+$/, ''),
+    suburb: g.suburb,
+    state: g.state,
+    date: g.date,
+    fileCount: g.files.length,
+    recovered: true,
+    files: g.files.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+  })).sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+
+  const recoveredCount = unsortedClusters.reduce((a, c) => a + c.fileCount, 0)
+  clusters.push(...unsortedClusters)
+
   const report = {
     generated_at: new Date().toISOString(),
     source_folder_id: SOURCE_ID,
     total_images: files.length,
     clustered: withGPS.filter(x => x.suburb).length,
+    recovered_unsorted: recoveredCount,
+    recovered_clusters: unsortedClusters.length,
     ungrouped_count: ungrouped.length,
     cluster_count: clusters.length,
     clusters,
-    ungrouped
+    // Slim copy — drop the heavy Drive file object now that recovery is done.
+    ungrouped: ungrouped.map(({ file, ...rest }) => rest)
   }
 
   fs.writeFileSync(REPORT_PATH, JSON.stringify(report, null, 2))
   console.log('\n──────────────────────────────────────────────')
-  console.log(`  Clusters    : ${clusters.length}`)
+  console.log(`  Clusters    : ${clusters.length} (incl. ${unsortedClusters.length} Unsorted)`)
   console.log(`  Clustered   : ${report.clustered} files`)
+  console.log(`  Recovered   : ${recoveredCount} files into Unsorted_<date> clusters`)
   console.log(`  Ungrouped   : ${report.ungrouped_count} files`)
   console.log(`  Top 5 clusters:`)
   for (const c of clusters.slice(0, 5)) {

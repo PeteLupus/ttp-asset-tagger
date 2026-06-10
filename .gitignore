@@ -1,5 +1,11 @@
 node_modules/
 .env
+# All token variants — refresh tokens expire ~weekly (Testing-mode OAuth app), so
+# they get renamed aside (token.invalid-*, token.json.expired-*). Never commit any.
+data/token*
+data/*credentials*
+# Report/backups carry Drive file IDs + names — keep them out of this PUBLIC repo.
+data/*.backup-*.json
 data/token.json
 data/progress.json
 data/dedup_progress.json
